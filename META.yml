@@ -1,0 +1,18 @@
+---
+name: Alien-wxWidgets
+version: 0.03
+author:
+  - Mattia Barbon <mbarbon@cpan.org>
+abstract: 'building, finding and using wxWidgets binaries'
+license: perl
+requires:
+  File::Spec: 0.80
+  Module::Build: 0.26
+  Module::Pluggable: 2.6
+provides:
+  Alien::wxWidgets:
+    file: lib/Alien/wxWidgets.pm
+    version: 0.03
+  Alien::wxWidgets::Utility:
+    file: lib/Alien/wxWidgets/Utility.pm
+generated_by: Module::Build version 0.2611
