@@ -20,8 +20,10 @@ Alien::wxWidgets - building, finding and using wxWidgets binaries
     my @libraries = Alien::wxWidgets->link_libraries( qw(gl adv core base) );
     my @implib = Alien::wxWidgets->import_libraries( qw(gl adv core base) );
     my @shrlib = Alien::wxWidgets->shared_libraries( qw(gl adv core base) );
+    my @keys = Alien::wxWidgets->library_keys; # 'gl', 'adv', ...
     my $library_path = Alien::wxWidgets->shared_library_path;
     my $key = Alien::wxWidgets->key;
+    my $prefix = Alien::wxWidgets->prefix;
 
 =head1 DESCRIPTION
 
@@ -41,8 +43,11 @@ use Module::Pluggable sub_name      => '_list',
                       instantiate   => 'config';
 
 our $AUTOLOAD;
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our %VALUES;
+our $dont_remap;
+
+*_remap = \&Alien::wxWidgets::Utility::_awx_remap;
 
 sub AUTOLOAD {
     my $name = $AUTOLOAD;
@@ -50,7 +55,7 @@ sub AUTOLOAD {
     $name =~ s/.*:://;
     croak "Can not use '", $name, "'" unless exists $VALUES{$name};
 
-    return $VALUES{$name};
+    return _remap( $VALUES{$name} );
 }
 
 sub import {
@@ -92,7 +97,8 @@ sub get_configurations {
     return awx_sort_config awx_grep_config [ shift->_list ], @_;
  }
 
-my $lib_nok = 'adv|base|html|net|xml|media';
+my $lib_nok  = 'adv|base|html|net|xml|media';
+my $lib_mono = 'adv|base|html|net|xml|xrc|media';
 
 sub _grep_libraries {
     my $lib_filter = $VALUES{version} >= 2.005001 ? qr/(?!a)a/ : # no match
@@ -100,11 +106,21 @@ sub _grep_libraries {
                                                     qr/^(?:$lib_nok)$/;
 
     my( $type, @libs ) = @_;
+
     my $dlls = $VALUES{_libraries};
 
     @libs = keys %$dlls unless @libs;
-    push @libs, 'core', 'base'  unless grep /^core$/, @libs;
-    return map  { defined( $dlls->{$_}{$type} ) ? $dlls->{$_}{$type} :
+    push @libs, 'core', 'base'  unless grep /^core|mono$/, @libs;
+
+    if( ( $VALUES{config}{build} || '' ) eq 'mono' ) {
+        @libs = map { $_ eq 'core'            ? ( 'mono' ) :
+                      $_ =~ /^(?:$lib_mono)$/ ? () :
+                      $_ } @libs;
+        @libs = qw(mono) unless @libs;
+    }
+
+    return map  { _remap( $_ ) }
+           map  { defined( $dlls->{$_}{$type} ) ? $dlls->{$_}{$type} :
                       croak "No such '$type' library: '$_'" }
            grep !/$lib_filter/, @libs;
 }
@@ -112,12 +128,14 @@ sub _grep_libraries {
 sub link_libraries { shift; return _grep_libraries( 'link', @_ ) }
 sub shared_libraries { shift; return _grep_libraries( 'dll', @_ ) }
 sub import_libraries { shift; return _grep_libraries( 'lib', @_ ) }
+sub library_keys { shift; return keys %{$VALUES{_libraries}} }
 
 sub libraries {
     my $class = shift;
 
-    return $VALUES{link_libraries} . ' ' .
-           join ' ', $class->link_libraries( @_ );
+    return ( _remap( $VALUES{link_libraries} ) || '' ) . ' ' .
+           join ' ', map { _remap( $_ ) }
+                         $class->link_libraries( @_ );
 }
 
 1;
@@ -285,3 +303,5 @@ Copyright (c) 2005 Mattia Barbon <mbarbon@cpan.org>
 
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself
+
+=cut

@@ -1,20 +1,25 @@
 package My::Build::Any_wx_config;
 
 use strict;
+use My::Build::Utility qw(awx_arch_dir awx_install_arch_dir);
 
-our @ISA;
+our @ISA = qw(My::Build::Any_wx_config::Base);
 
 our $WX_CONFIG_LIBSEP;
 our @LIBRARIES = qw(base net xml adv animate core deprecated fl gizmos
-                    html media mmedia ogl plot qa stc svg xrc);
+                    html media mmedia ogl plot qa stc svg xrc gl);
 
-BEGIN {
+my $initialized;
+my( $wx_debug, $wx_unicode, $wx_monolithic );
+
+sub _init {
+    return if $initialized;
+    $initialized = 1;
+
     my $wx_config = $ENV{WX_CONFIG} || 'wx-config';
-    my $ver = `$wx_config --version`;
-    my( $wx_debug, $wx_unicode );
+    my $ver = `$wx_config --version` or die "Can't execute wx-config: $!";
 
-    $ver =~ m/^(\d)\.(\d)/;
-    $ver = $1 + $2 / 1000;
+    $ver = __PACKAGE__->_version_2_dec( $ver );
 
     my $base = `$wx_config --basename`;
     $wx_debug = $base =~ m/d$/ ? 1 : 0;
@@ -23,6 +28,8 @@ BEGIN {
     if( $ver >= 2.005001 ) {
         $WX_CONFIG_LIBSEP = `$wx_config --libs base > /dev/null 2>&1 || echo 'X'` eq "X\n" ?
           '=' : ' ';
+        $wx_monolithic = `$wx_config --libs${WX_CONFIG_LIBSEP}adv` eq
+                         `$wx_config --libs${WX_CONFIG_LIBSEP}core`;
         require My::Build::Any_wx_config_Bakefile;
         @ISA = qw(My::Build::Any_wx_config_Bakefile);
     } else {
@@ -30,24 +37,44 @@ BEGIN {
         @ISA = qw(My::Build::Any_wx_config_Tmake);
     }
 
-    sub awx_is_debug { $wx_debug }
-    sub awx_is_unicode { $wx_unicode }
+    sub awx_is_debug {
+        $_[0]->notes( 'build_wx' )
+          ? $_[0]->SUPER::awx_is_debug
+          : $wx_debug;
+    }
+    sub awx_is_unicode {
+        $_[0]->notes( 'build_wx' )
+          ? $_[0]->SUPER::awx_is_unicode
+          : $wx_unicode;
+    }
+    sub awx_is_monolithic {
+        $_[0]->notes( 'build_wx' )
+          ? $_[0]->SUPER::awx_is_monolithic
+          : $wx_monolithic;
+    }
 }
 
 package My::Build::Any_wx_config::Base;
 
 use strict;
 use base qw(My::Build::Base);
+use Fatal qw(chdir mkdir);
+use Cwd ();
 use Config;
+use My::Build::Utility qw(awx_arch_dir awx_install_arch_dir);
 
 sub awx_configure {
+    My::Build::Any_wx_config::_init;
+
     my $self = shift;
     my %config = $self->SUPER::awx_configure;
     my $cf = $self->wx_config( 'cxxflags' );
 
+    $config{prefix} = $self->wx_config( 'prefix' );
     $cf =~ m/__WX(x11|msw|motif|gtk|mac)__/i or
       die "Unable to determine toolkit!";
     $config{config}{toolkit} = lc $1;
+    $config{config}{build} = $self->awx_is_monolithic ? 'mono' : 'multi';
 
     if( $config{config}{toolkit} eq 'gtk' ) {
         $self->wx_config( 'basename' ) =~ m/(gtk2?)/i or
@@ -69,6 +96,9 @@ sub awx_configure {
         $config{c_flags} .= "$_ ";
     }
 
+    my @paths = ( ( map { s/^-L//; $_ } grep { /^-L/ } split ' ', $libs ),
+                  qw(/usr/local/lib /usr/lib) );
+
     foreach ( split /\s+/, $libs ) {
         m{^-[lL]|/} && do { $config{link_libraries} .= " $_"; next; };
         if( $_ eq '-pthread' && $^O =~ m/linux/i ) {
@@ -78,12 +108,30 @@ sub awx_configure {
         $config{link_libraries} .= " $_";
     }
 
-    $config{_libraries} = $self->wx_config( 'dlls' );
+    $config{link_libraries} .= ' -lc_r' if $^O =~ /freebsd/i;
+
+    my %dlls = %{$self->wx_config( 'dlls' )};
+    $config{_libraries} = {};
+
+    while( my( $k, $v ) = each %dlls ) {
+        if( @paths ) {
+            my $found = 0;
+            foreach my $path ( @paths ) {
+                $found = 1 if -f File::Spec->catfile( $path, $v->{dll} );
+            }
+            warn "'$k' library not found" and next
+                unless $found || $self->notes( 'build_wx' );
+        }
+
+        $config{_libraries}{$k} = $v;
+    }
 
     return %config;
 }
 
 sub _call_wx_config {
+    My::Build::Any_wx_config::_init;
+
     my $self = shift;
     my $options = join ' ', map { "--$_" } @_;
     my $wx_config = $ENV{WX_CONFIG} || 'wx-config';
@@ -98,7 +146,98 @@ sub _call_wx_config {
 }
 
 sub awx_compiler_kind {
+    My::Build::Any_wx_config::_init;
+
     return Alien::wxWidgets::Utility::awx_compiler_kind( $_[1] )
 }
+
+sub awx_dlext { $Config{dlext} }
+
+sub _key {
+    my $self = shift;
+    my $key = $self->awx_get_name
+      ( toolkit          => $self->awx_build_toolkit,
+        version          => $self->_version_2_dec
+                            ( $self->notes( 'build_data' )->{data}{version} ),
+        debug            => $self->awx_is_debug,
+        unicode          => $self->awx_is_unicode,
+        mslu             => $self->awx_is_mslu,
+        # it is unlikely it will ever be required under *nix
+        $self->notes( 'build_wx' ) ? () :
+        ( compiler         => $self->awx_compiler_kind( $Config{cc} ),
+          compiler_version => $self->awx_compiler_version( $Config{cc} )
+          ),
+      );
+
+    return $key;
+}
+
+sub build_wxwidgets {
+    my $self = shift;
+    my $prefix = awx_install_arch_dir( $self->_key );
+    my $args = sprintf '--with-%s --with-opengl --disable-compat24',
+                       $self->awx_build_toolkit;
+    my $unicode = $self->awx_is_unicode ? 'enable' : 'disable';
+    my $debug = $self->awx_is_debug ? 'enable' : 'disable';
+    my $dir = $self->notes( 'build_data' )->{data}{directory};
+    my $cmd = "echo exit | " . # for OS X 10.3...
+              "sh ../configure --prefix=$prefix $args --$unicode-unicode"
+            . " --$debug-debug";
+    my $old_dir = Cwd::cwd;
+
+    chdir $dir;
+
+    # do not reconfigure unless necessary
+    mkdir 'bld' unless -d 'bld';
+    chdir 'bld';
+    $self->_system( $cmd ) unless -f 'Makefile';
+    $self->_system( 'make all' );
+    chdir 'contrib/src/stc';
+    $self->_system( 'make all' );
+
+    chdir $old_dir;
+}
+
+sub massage_environment {
+    my( $self ) = shift;
+
+    if( $self->notes( 'build_wx' ) ) {
+        my $wxc = File::Spec->rel2abs
+                    ( File::Spec->catfile
+                      ( $self->notes( 'build_data' )->{data}{directory},
+                        'bld', 'wx-config' ) );
+        # find the real and non-inplace wx-config
+        while( -l $wxc ) {
+            my $to = readlink $wxc;
+            my( $vol, $dir, $file ) = File::Spec->splitpath( $wxc );
+            $wxc = File::Spec->catfile( $dir, $to );
+        }
+        $wxc =~ s{/inplace-([^/]+)$}{/$1};
+        $ENV{WX_CONFIG} = $wxc;
+    }
+}
+
+sub install_wxwidgets { }
+
+sub install_system_wxwidgets {
+    my( $self ) = shift;
+
+    return unless $self->notes( 'build_wx' );
+
+    my $dir = $self->notes( 'build_data' )->{data}{directory};
+    my $old_dir = Cwd::cwd;
+    my $destdir = $self->destdir ? ' DESTDIR=' . $self->destdir : '';
+
+    chdir $dir;
+
+    chdir 'bld';
+    $self->_system( 'make install' . $destdir );
+    chdir 'contrib/src/stc';
+    $self->_system( 'make install' . $destdir );
+
+    chdir $old_dir;
+}
+
+sub awx_build_toolkit { 'gtk' }
 
 1;

@@ -24,13 +24,14 @@ sub _call_make {
 }
 
 sub awx_wx_config_data {
+    My::Build::Win32::_init();
+
     my $self = shift;
     return $self->{awx_data} if $self->{awx_data};
 
     my %data = ( %{$self->SUPER::awx_wx_config_data},
                  'cxx'     => 'g++',
                  'ld'      => 'g++',
-                 'wxdir'   => $ENV{WXDIR},
                );
 
     foreach my $item ( qw(cxxflags version libs) ) {
@@ -63,5 +64,7 @@ sub awx_wx_config_data {
 
     $self->{awx_data} = \%data;
 }
+
+sub awx_uses_bakefile { 0 }
 
 1;

@@ -23,13 +23,14 @@ sub _call_make {
 }
 
 sub awx_wx_config_data {
+    My::Build::Win32::_init();
+
     my $self = shift;
     return $self->{awx_data} if $self->{awx_data};
 
     my %data = ( %{$self->SUPER::awx_wx_config_data},
                  'cxx'     => 'cl',
                  'ld'      => 'link',
-                 'wxdir'   => $ENV{WXDIR},
                );
 
     die "PANIC: you are not using nmake!" unless $Config{make} eq 'nmake';
@@ -65,5 +66,7 @@ sub awx_wx_config_data {
 
     $self->{awx_data} = \%data;
 }
+
+sub awx_uses_bakefile { 0 }
 
 1;
