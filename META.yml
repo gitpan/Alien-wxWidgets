@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: Alien-wxWidgets
-version: 0.05
+version: 0.06
 author:
   - Mattia Barbon <mbarbon@cpan.org>
 abstract: building, finding and using wxWidgets binaries
