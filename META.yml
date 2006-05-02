@@ -1,8 +1,24 @@
---- #YAML:1.0
+---
 name: Alien-wxWidgets
-version: 0.07
+version: 0.08
 author:
-  - Mattia Barbon <mbarbon@cpan.org>
-abstract: building, finding and using wxWidgets binaries
+  - 'Mattia Barbon <mbarbon@cpan.org>'
+abstract: 'building, finding and using wxWidgets binaries'
 license: perl
-generated_by: Module::Build version 0.2612, without YAML.pm
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Module::Pluggable: 2.6
+  perl: 5.6
+build_requires:
+  Module::Build: 0.26
+provides:
+  Alien::wxWidgets:
+    file: lib/Alien/wxWidgets.pm
+    version: 0.08
+  Alien::wxWidgets::Utility:
+    file: lib/Alien/wxWidgets/Utility.pm
+generated_by: Module::Build version 0.28
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
