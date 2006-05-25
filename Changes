@@ -1,5 +1,9 @@
 Revision history for Perl extension Alien::wxWidgets.
 
+0.11  Thu May 25 22:27:05 CEST 2006
+	- Bundle and use the patch implementation from PPT.
+	- Rediffed all the patches against wxWidgets 2.6.3.
+
 0.10  Sun May 21 19:19:39 CEST 2006
 	- Prefer $CXX to $CC if both are set.
 	- Download and build wxWidgets 2.6.3.

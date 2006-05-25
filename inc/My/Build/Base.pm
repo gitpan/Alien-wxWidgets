@@ -270,7 +270,12 @@ sub patch_wxwidgets {
 
     foreach my $i ( @patches ) {
         print "Applying patch: ", $i, "\n";
-        system "patch --binary -b -p0 < $i" and die 'Error: ', $?;
+        my $cmd = $^X . ' ' . File::Spec->catfile( $old_dir,
+                                                   qw(inc bin patch) )
+                  . " -N -p0 -u -s -b .bak < $i";
+        # system "patch --binary -b -p0 < $i" and die 'Error: ', $?;
+        print $cmd, "\n";
+        system $cmd and die 'Error: ', $?;
     }
 
     chdir $old_dir;
