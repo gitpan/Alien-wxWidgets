@@ -46,3 +46,4 @@ patches/wxWidgets-2.6.3.patch
 script/make_ppm.pl
 t/01_load.t
 t/zz_pod.t
+Makefile.PL

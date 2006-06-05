@@ -241,7 +241,13 @@ sub extract_wxwidgets {
 
         package Archive::Extract::Bz2;
 
-        sub new { my $class = shift; bless { @_ }, $class };
+        sub _has_bzip2 {
+            foreach my $dir ( File::Spec->path ) {
+                return if -x File::Spec->catfile( $dir, 'bzip2' );
+            }
+            die "\n\nYou need to install bzip2!\n\n\n";
+        }
+        sub new { _has_bzip2; my $class = shift; bless { @_ }, $class };
         sub extract {
             my $archive = $_[0]->{archive};
             system "bzip2 -cd $archive | tar -x -f -" and die 'Error: ', $?;
@@ -367,7 +373,7 @@ sub awx_get_name {
 sub awx_compiler_kind { 'nc' } # as in 'No Clue'
 
 sub awx_compiler_version {
-    return Alien::wxWidgets::Utility::awx_cc_version( $_[1] );
+    return Alien::wxWidgets::Utility::awx_cc_abi_version( $_[1] );
 }
 
 sub awx_path_search {
