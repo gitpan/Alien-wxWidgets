@@ -1,5 +1,8 @@
 Revision history for Perl extension Alien::wxWidgets.
 
+0.13  Sun Jun 18 17:52:44 CEST 2006
+	- Removed (unused) Module::Install from inc.
+
 0.12  Mon Jun  5 21:59:58 CEST 2006
 	- Work with old versions of Test::Pod.
 	- Added a 'passthrough' Makefile.PL.

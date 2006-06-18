@@ -1,7 +1,7 @@
 Build.PL
 Changes
 INSTALL
-MANIFEST			This list of files
+MANIFEST
 MANIFEST.SKIP
 META.yml
 inc/File/Fetch.pm
@@ -9,10 +9,6 @@ inc/File/Fetch/Item.pm
 inc/File/Spec/Unix.pm
 inc/IPC/Cmd.pm
 inc/Locale/Maketext/Simple.pm
-inc/Module/Install.pm
-inc/Module/Install/Base.pm
-inc/Module/Install/Include.pm
-inc/Module/Install/Metadata.pm
 inc/Module/Load.pm
 inc/Module/Load/Conditional.pm
 inc/My/Build.pm
