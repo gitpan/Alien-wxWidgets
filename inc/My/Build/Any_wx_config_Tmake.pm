@@ -16,7 +16,7 @@ sub awx_wx_config_data {
     $data{libs} =~ s/\-lwx\S+//g;
     ( my $ver = $data{version} ) =~ s/\.\d+$//;
 
-    my $lib_link  = sub {
+    my $lib_link = sub {
         $_[0] eq 'core' ?
           '-l' . $data{basename} . '-' . $ver :
           '-l' . $data{basename}  . '_' . $_[0] . '-' . $ver;
