@@ -21,10 +21,12 @@ use constant TGZ            => 'tgz';
 use constant TAR            => 'tar';
 use constant GZ             => 'gz';
 use constant ZIP            => 'zip';
+use constant BZ2            => 'bz2';
+use constant TBZ            => 'tbz';
 
 use vars qw[$VERSION $PREFER_BIN $PROGRAMS $WARN $DEBUG];
 
-$VERSION        = '0.08';
+$VERSION        = '0.12';
 $PREFER_BIN     = 0;
 $WARN           = 1;
 $DEBUG          = 0;
@@ -65,23 +67,26 @@ Archive::Extract -- A generic archive extracting mechanism
     $ae->is_tgz     # is it a .tar.gz or .tgz file?
     $ae->is_gz;     # is it a .gz file?
     $ae->is_zip;    # is it a .zip file?
+    $ae->is_bz2;    # is it a .bz2 file?
+    $ae->is_tbz;    # is it a .tar.bz2 or .tbz file?
 
     ### absolute path to the archive you provided ###
     $ae->archive;
 
     ### commandline tools, if found ###
-    $ae->bin_tar    # path to /bin/tar, if found
-    $ae->bin_gzip   # path to /bin/gzip, if found
-    $ae->bin_unzip  # path to /bin/unzip, if found
+    $ae->bin_tar     # path to /bin/tar, if found
+    $ae->bin_gzip    # path to /bin/gzip, if found
+    $ae->bin_unzip   # path to /bin/unzip, if found
+    $ae->bin_bunzip2 # path to /bin/bunzip2 if found
 
 =head1 DESCRIPTION
 
 Archive::Extract is a generic archive extraction mechanism.
 
 It allows you to extract any archive file of the type .tar, .tar.gz,
-.gz or .zip without having to worry how it does so, or use different
-interfaces for each type by using either perl modules, or commandline
-tools on your system.
+.gz, tar.bz, .tbz2, .bz2 or .zip without having to worry how it does 
+so, or use different interfaces for each type by using either perl 
+modules, or commandline tools on your system.
 
 See the C<HOW IT WORKS> section further down for details.
 
@@ -90,7 +95,7 @@ See the C<HOW IT WORKS> section further down for details.
 
 ### see what /bin/programs are available ###
 $PROGRAMS = {};
-for my $pgm (qw[tar unzip gzip]) {
+for my $pgm (qw[tar unzip gzip bunzip2]) {
     $PROGRAMS->{$pgm} = can_run($pgm);
 }
 
@@ -100,12 +105,14 @@ my $Mapping = {
     is_tar  => '_untar',
     is_gz   => '_gunzip',
     is_zip  => '_unzip',
+    is_tbz  => '_untar',
+    is_bz2  => '_bunzip2',
 };
 
 {
     my $tmpl = {
         archive => { required => 1, allow => FILE_EXISTS },
-        type    => { default => '', allow => [qw|tgz tar zip gz|] },
+        type    => { default => '', allow => [qw|tgz tar zip gz bz2 tbz2|] },
     };
 
     ### build accesssors ###
@@ -153,6 +160,16 @@ Corresponds to a C<.gz> suffix.
 Zip compressed file, as produced by, for example C</bin/zip>.
 Corresponds to a C<.zip>, C<.jar> or C<.par> suffix.
 
+=item bz2
+
+Bzip2 compressed file, as produced by, for example, C</bin/bzip2>.
+Corresponds to a C<.bz2> suffix.
+
+=item tbz
+
+Bzip2 compressed tar file, as produced by, for exmample C</bin/tar -j>.
+Corresponds to a C<.tbz> or C<.tar.bz2> suffix.
+
 =back
 
 Returns a C<Archive::Extract> object on success, or false on failure.
@@ -172,10 +189,12 @@ Returns a C<Archive::Extract> object on success, or false on failure.
         ### figure out the type, if it wasn't already specified ###
         unless ( $parsed->{type} ) {
             $parsed->{type} =
-                $ar =~ /.+?\.(?:tar\.gz)|tgz$/i ? TGZ   :
-                $ar =~ /.+?\.gz$/i              ? GZ    :
-                $ar =~ /.+?\.tar$/i             ? TAR   :
-                $ar =~ /.+?\.(zip|jar|par)$/i   ? ZIP   :
+                $ar =~ /.+?\.(?:tar\.gz)|tgz$/i     ? TGZ   :
+                $ar =~ /.+?\.gz$/i                  ? GZ    :
+                $ar =~ /.+?\.tar$/i                 ? TAR   :
+                $ar =~ /.+?\.(zip|jar|par)$/i       ? ZIP   :
+                $ar =~ /.+?\.(?:tbz|tar\.bz2?)$/i   ? TBZ   :
+                $ar =~ /.+?\.bz2$/i                 ? BZ2   :
                 '';
 
         }
@@ -250,9 +269,9 @@ sub extract {
     ### to.
     my $dir;
     {   ### a foo.gz file
-        if( $self->is_gz ) {
+        if( $self->is_gz or $self->is_bz2 ) {
     
-            my $cp = $self->archive; $cp =~ s/\.gz$//i;
+            my $cp = $self->archive; $cp =~ s/\.(?:gz|bz2)$//i;
         
             ### to is a dir?
             if ( -d $to ) {
@@ -290,6 +309,12 @@ sub extract {
             $self->_error(loc("Could not chdir to '%1': %2", $dir, $!));
             $ok = 0; last EXTRACT;
         }
+
+        ### set files to an empty array ref, so there's always an array
+        ### ref IN the accessor, to avoid errors like:
+        ### Can't use an undefined value as an ARRAY reference at
+        ### ../lib/Archive/Extract.pm line 742. (rt #19815)
+        $self->files( [] );
 
         ### find what extractor method to use ###
         while( my($type,$method) = each %$Mapping ) {
@@ -372,6 +397,8 @@ sub is_tgz  { return $_[0]->type eq TGZ }
 sub is_tar  { return $_[0]->type eq TAR }
 sub is_gz   { return $_[0]->type eq GZ  }
 sub is_zip  { return $_[0]->type eq ZIP }
+sub is_tbz  { return $_[0]->type eq TBZ }
+sub is_bz2  { return $_[0]->type eq BZ2 }
 
 =pod
 
@@ -393,7 +420,7 @@ Returns the full path to your unzip binary, if found
 sub bin_gzip    { return $PROGRAMS->{'gzip'}    if $PROGRAMS->{'gzip'}  }
 sub bin_unzip   { return $PROGRAMS->{'unzip'}   if $PROGRAMS->{'unzip'} }
 sub bin_tar     { return $PROGRAMS->{'tar'}     if $PROGRAMS->{'tar'}   }
-
+sub bin_bunzip2 { return $PROGRAMS->{'bunzip2'} if $PROGRAMS->{'bunzip2'} }
 
 #################################
 #
@@ -407,8 +434,10 @@ sub bin_tar     { return $PROGRAMS->{'tar'}     if $PROGRAMS->{'tar'}   }
 sub _untar {
     my $self = shift;
 
-    my @methods = qw[_untar_at _untar_bin];
-       @methods = reverse @methods if $PREFER_BIN;
+    ### no bzip2 support in A::T yet
+    my   @methods = qw[_untar_bin];
+    push @methods,  qw[_untar_at] unless $self->is_tbz;
+         @methods = reverse @methods unless $PREFER_BIN;
 
     for my $method (@methods) {
         $self->_extractor($method) && return 1 if $self->$method();
@@ -429,6 +458,9 @@ sub _untar_bin {
     return $self->_error(loc("No '%1' program found", '/bin/gzip'))
         if $self->is_tgz && !$self->bin_gzip;
 
+    return $self->_error(loc("No '%1' program found", '/bin/bunzip2'))
+        if $self->is_tbz && !$self->bin_bunzip2;
+
     ### XXX figure out how to make IPC::Run do this in one call --
     ### currently i don't know how to get output of a command after a pipe
     ### trapped in a scalar. Mailed barries about this 5th of june 2004.
@@ -441,10 +473,12 @@ sub _untar_bin {
     ### XXX solaris tar and bsdtar are having different outputs
     ### depending whether you run with -x or -t
     ### compensate for this insanity by running -t first, then -x
-    {    my $cmd = $self->is_tgz
-            ? [$self->bin_gzip, '-cdf', $self->archive, '|',
-               $self->bin_tar, '-tf', '-']
-            : [$self->bin_tar, '-tf', $self->archive];
+    {    my $cmd = 
+            $self->is_tgz ? [$self->bin_gzip, '-cdf', $self->archive, '|',
+                             $self->bin_tar, '-tf', '-'] :
+            $self->is_tbz ? [$self->bin_bunzip2, '-c', $self->archive, '|',                             
+                             $self->bin_tar, '-tf', '-'] :
+            [$self->bin_tar, '-tf', $self->archive];
 
         ### run the command ###
         my $buffer = '';
@@ -482,10 +516,12 @@ sub _untar_bin {
     }
 
     ### now actually extract it ###
-    {   my $cmd = $self->is_tgz
-            ? [$self->bin_gzip, '-cdf', $self->archive, '|',
-               $self->bin_tar, '-xf', '-']
-            : [$self->bin_tar, '-xf', $self->archive];
+    {   my $cmd = 
+            $self->is_tgz ? [$self->bin_gzip, '-cdf', $self->archive, '|',
+                             $self->bin_tar, '-xf', '-'] :
+            $self->is_tbz ? [$self->bin_bunzip2, '-c', $self->archive, '|',                             
+                             $self->bin_tar, '-xf', '-'] :
+            [$self->bin_tar, '-xf', $self->archive];
 
         my $buffer = '';
         unless( scalar run( command => $cmd,
@@ -728,7 +764,7 @@ sub _unzip_bin {
     }
 
     ### now, extract the archive ###
-    {   my $cmd = [ $self->bin_unzip, '-qq', $self->archive ];
+    {   my $cmd = [ $self->bin_unzip, '-qq', '-o', $self->archive ];
 
         my $buffer;
         unless( scalar run( command => $cmd,
@@ -787,7 +823,9 @@ sub _unzip_az {
 
 sub __get_extract_dir {
     my $self    = shift;
-    my $files   = shift or return;
+    my $files   = shift || [];
+    
+    return unless scalar @$files;
 
     my($dir1, $dir2);
     for my $aref ( [ \$dir1, 0 ], [ \$dir2, -1 ] ) {
@@ -821,6 +859,66 @@ sub __get_extract_dir {
 
     return File::Spec->rel2abs( $dir );
 }
+
+#################################
+#
+# Bunzip2 code
+#
+#################################
+
+### bunzip2 wrapper... 
+sub _bunzip2 {
+    my $self = shift;
+
+    my @methods = qw[_bunzip2_bin];
+    #   @methods = reverse @methods if $PREFER_BIN;
+
+    for my $method (@methods) {
+        $self->_extractor($method) && return 1 if $self->$method();
+    }
+
+    return $self->_error(loc("Unable to bunzip2 file '%1'", $self->archive));
+}
+
+sub _bunzip2_bin {
+    my $self = shift;
+
+    ### check for /bin/gzip -- we need it ###
+    return $self->_error(loc("No '%1' program found", '/bin/bunzip2'))
+        unless $self->bin_bunzip2;
+
+
+    my $fh = FileHandle->new('>'. $self->_gunzip_to) or
+        return $self->_error(loc("Could not open '%1' for writing: %2",
+                            $self->_gunzip_to, $! ));
+
+    my $cmd = [ $self->bin_bunzip2, '-c', $self->archive ];
+
+    my $buffer;
+    unless( scalar run( command => $cmd,
+                        verbose => $DEBUG,
+                        buffer  => \$buffer )
+    ) {
+        return $self->_error(loc("Unable to bunzip2 '%1': %2",
+                                    $self->archive, $buffer));
+    }
+
+    unless( $buffer ) {
+        $self->_error(loc("No buffer captured, unable to get content for '%1'",
+                          $self->archive));
+    }
+
+    print $fh $buffer if defined $buffer;
+
+    close $fh;
+
+    ### set what files where extract, and where they went ###
+    $self->files( [$self->_gunzip_to] );
+    $self->extract_path( File::Spec->rel2abs(cwd()) );
+
+    return 1;
+}
+
 
 
 #################################
@@ -872,11 +970,19 @@ See the section on C<GLOBAL VARIABLES> to see how to alter this order.
 
 =head1 CAVEATS
 
+=head2 File Extensions
+
 C<Archive::Extract> trusts on the extension of the archive to determine
 what type it is, and what extractor methods therefore can be used. If
 your archives do not have any of the extensions as described in the
 C<new()> method, you will have to specify the type explicitly, or
 C<Archive::Extract> will not be able to extract the archive for you.
+
+=head2 Bzip2 Support
+
+There's currently no very reliable pure perl Bzip2 implementation
+available, so C<Archive::Extract> can only extract C<bzip2> 
+compressed archives if you have a C</bin/bunzip2> program.
 
 =head1 GLOBAL VARIABLES
 
@@ -915,14 +1021,12 @@ Defaults to C<false>.
 
 =over 4
 
-=item bzip2 support
-
-Right now, bzip2 (.bz2/tar.bz2/tbz) files are completely unsupported.
-
 =item Mime magic support
 
 Maybe this module should use something like C<File::Type> to determine
 the type, rather than blindly trust the suffix.
+
+=back
 
 =head1 AUTHORS
 
