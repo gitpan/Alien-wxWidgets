@@ -1,5 +1,8 @@
 Revision history for Perl extension Alien::wxWidgets.
 
+0.27_50
+	- Fetch and build wxWidgets 2.8.0.
+
 0.27  Tue Dec 19 23:04:41 CET 2006
 	- Support monolithic wxWidgets builds.
 
