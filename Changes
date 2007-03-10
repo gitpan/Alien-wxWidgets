@@ -1,5 +1,8 @@
 Revision history for Perl extension Alien::wxWidgets.
 
+0.28  Sat Mar 10 21:41:32 CET 2007
+	- Release 0.27_51 as the new stable version.
+
 0.27_51  Sun Feb 25 22:54:07 CET 2007
 	- Fetch and build wxWidgets 2.8.1.
 
