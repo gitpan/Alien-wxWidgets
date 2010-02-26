@@ -14,6 +14,16 @@ my %VERSIONS =
     );
 my $DEFAULT_VERSION = '2.8.10';
 
+if( $^O eq 'cygwin' ) {
+    print <<EOT;
+==========================================================
+There is no support to build Alien::wxWidgets (and wxPerl)
+on Cygwin.
+==========================================================
+EOT
+    exit 1;
+}
+
 # new_from_context is broken: it does not restore
 # @INC set in Build.PL before trying to load a base class not
 # defined using ->subclass...
@@ -33,6 +43,7 @@ my $build = $class->new
                         },
     build_requires  => { 'Module::Build'                  => '0.28',
                          'ExtUtils::CBuilder'             => '0.24',
+                         'File::Spec'                     => '1.50',
                          },
     configure_requires => { 'Module::Build'               => '0.28',
                             },
@@ -48,6 +59,7 @@ my $build = $class->new
                          'wxWidgets-build-opengl'  => { type => '!' },
                          'wxWidgets-source'        => { type => '=s' },
                          'wxWidgets-version'       => { type => '=s' },
+                         'wxWidgets-extraflags'    => { type => '=s' },
                          },
     create_makefile_pl => 'passthrough',
     meta_merge =>
@@ -178,6 +190,7 @@ my $wx_version;
 $build->notes( 'build_wx' => $build_wx );
 $build->notes( 'mk_portable' => $build->args('wxWidgets-portable') );
 $build->notes( 'install_only' => $have_alien_configuration && !$build_wx && $accept_defaults );
+$build->notes( 'extraflags' => $build->args('wxWidgets-extraflags') || '' );
 if( $build_wx ) {
     $wx_version = _askmulti( $build, 'wxWidgets-version',
                              'Which wxWidgets version?',

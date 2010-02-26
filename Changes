@@ -1,5 +1,11 @@
 Revision history for Perl extension Alien::wxWidgets.
 
+0.50_01  Fri Feb 26 17:08:21 CET 2010
+        - Added wxWidgets-extraflags build option.
+	- Exit with an error message under Cygwin.
+	- Use the system version of Archive::Extract and File::Fetch
+	  if newer than the bundled version.
+
 0.50  Sun Jan 10 16:16:44 CET 2010
 	- When compiling on Windows with MSVC 9, make the generated
 	  wxWidgets DLL load correctly by adding a manifest to them
