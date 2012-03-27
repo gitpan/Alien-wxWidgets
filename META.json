@@ -36,7 +36,7 @@
    "provides" : {
       "Alien::wxWidgets" : {
          "file" : "lib/Alien/wxWidgets.pm",
-         "version" : "0.56"
+         "version" : "0.57"
       },
       "Alien::wxWidgets::Utility" : {
          "file" : "lib/Alien/wxWidgets/Utility.pm",
@@ -57,5 +57,5 @@
       },
       "x_MailingList" : "http://lists.perl.org/list/wxperl-users.html"
    },
-   "version" : "0.56"
+   "version" : "0.57"
 }
