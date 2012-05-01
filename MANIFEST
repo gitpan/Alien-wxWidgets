@@ -85,4 +85,3 @@ t/01_load.t
 t/zy_pod_coverage.t
 t/zz_pod.t
 
-META.json
