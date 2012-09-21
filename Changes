@@ -1,5 +1,9 @@
 Revision history for Perl extension Alien::wxWidgets.
 
+0.61  Fri Sep 21 2012
+    - change default debug level for wxWidgets >= 2.9 to 1 ( was 0)
+    - fix several incorrect wxWidgets version checks 
+
 0.60  Fri Aug 24 2012
     - allow building 2.9.4
     - correct SDKs for Mountain Lion
